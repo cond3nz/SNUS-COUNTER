@@ -195,11 +195,17 @@ public class SnusStore {
     private List<Entry> loadEntries() {
         List<Entry> list = new ArrayList<>();
         String json = prefs.getString(KEY_ENTRIES, "[]");
+        long now = System.currentTimeMillis();
         try {
             JSONArray arr = new JSONArray(json);
             for (int i = 0; i < arr.length(); i++) {
                 JSONObject o = arr.getJSONObject(i);
-                list.add(new Entry(o.getLong("t"), o.getInt("p")));
+                long t = o.getLong("t");
+                int p = o.getInt("p");
+                // Санация: пропускаем повреждённые записи (метка в будущем —
+                // например, после сбоя часов на устройстве — или нулевые порции).
+                if (t < 0 || t > now + 60_000L || p <= 0) continue;
+                list.add(new Entry(t, p));
             }
         } catch (Exception ignored) {
         }

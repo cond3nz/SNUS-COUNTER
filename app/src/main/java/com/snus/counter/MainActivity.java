@@ -174,6 +174,7 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
         long diff = System.currentTimeMillis() - last;
+        if (diff < 0) diff = 0; // защита от «будущих» меток (сбой часов устройства)
         long mins = TimeUnit.MILLISECONDS.toMinutes(diff);
         if (mins < 1) {
             tvLastUse.setText(R.string.last_use_now);

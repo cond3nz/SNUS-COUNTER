@@ -15,12 +15,32 @@ const defaults = {
 
 let state = load();
 
+/**
+ * Санация данных: отфильтровывает повреждённые записи.
+ * Могут появиться из-за сбитых часов устройства или ручного импорта —
+ * например, метка времени в будущем или некорректный тип. Такие записи
+ * ломают таймер «с последней порции» (отрицательная разница дат).
+ */
+function sanitize(raw) {
+  if (!Array.isArray(raw)) return [];
+  const maxTs = Date.now() + 60000; // допустимый запас на часовые пояса
+  return raw.filter(
+    (e) =>
+      e &&
+      Number.isFinite(e.t) &&
+      e.t >= 0 &&
+      e.t <= maxTs &&
+      Number.isFinite(e.p) &&
+      e.p > 0
+  );
+}
+
 function load() {
   try {
     const raw = localStorage.getItem(PREFS_KEY);
     if (!raw) return structuredClone(defaults);
     const parsed = JSON.parse(raw);
-    return { ...structuredClone(defaults), ...parsed };
+    return { ...structuredClone(defaults), ...parsed, entries: sanitize(parsed.entries) };
   } catch {
     return structuredClone(defaults);
   }
@@ -47,8 +67,17 @@ function dayStartMillis(ts) {
 
 // ---------- Операции над записями ----------
 function addEntry(portions) {
-  state.entries.push({ t: Date.now(), p: Math.max(1, Math.round(portions)) });
+  const now = Date.now();
+  // Защита от «будущих» меток времени (сбитые часы устройства): не даём
+  // таймеру «с последней порции» уйти в отрицательную зону.
+  if (!isFinite(now) || now < 0) return;
+  state.entries.push({ t: now, p: Math.max(1, Math.round(portions)) });
   save();
+}
+
+/** Игнорируем записи с невозможными метками (отрицательные / из будущего). */
+function isValidTs(ts) {
+  return Number.isFinite(ts) && ts >= 0 && ts <= Date.now() + 60000;
 }
 
 function removeLastEntryToday() {
@@ -143,6 +172,7 @@ const els = {
 
 // ---------- Форматтеры ----------
 function fmtDuration(ms) {
+  if (!Number.isFinite(ms) || ms < 0) return "—"; // защита от «будущих» меток
   const s = Math.floor(ms / 1000);
   if (s < 60) return `${s} сек`;
   const m = Math.floor(s / 60);
@@ -205,7 +235,13 @@ function renderToday() {
 // ---------- Таймер с последней порции ----------
 function updateTimer() {
   const last = getLastUseTimeToday();
-  els.lastUseTimer.textContent = last ? fmtDuration(Date.now() - last) : "—";
+  if (!last || !isValidTs(last)) {
+    els.lastUseTimer.textContent = "—";
+    return;
+  }
+  // Отрицательная разница невозможна, но на всякий случай зажимаем в ноль.
+  const diff = Math.max(0, Date.now() - last);
+  els.lastUseTimer.textContent = diff < 1000 ? "только что" : fmtDuration(diff);
 }
 
 // ---------- История ----------
