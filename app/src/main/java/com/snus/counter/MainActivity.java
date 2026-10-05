@@ -175,6 +175,11 @@ public class MainActivity extends AppCompatActivity {
         }
         long diff = System.currentTimeMillis() - last;
         if (diff < 0) diff = 0; // защита от «будущих» меток (сбой часов устройства)
+        // Аномально большие значения (>3 лет) — битые данные: скрываем вместо мусора.
+        if (diff > TimeUnit.DAYS.toMillis(3 * 365)) {
+            tvLastUse.setText(R.string.last_use_none);
+            return;
+        }
         long mins = TimeUnit.MILLISECONDS.toMinutes(diff);
         if (mins < 1) {
             tvLastUse.setText(R.string.last_use_now);
