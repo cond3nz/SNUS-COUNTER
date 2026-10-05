@@ -52,6 +52,9 @@ function save() {
 
 // ---------- Утилиты дат ----------
 function dayKey(ts) {
+  // Для метки в будущем (часы спешат) берём «доверенное» время, иначе
+  // запись попадёт в «завтра» и исчезнет из сегодняшнего счётчика.
+  if (ts > Date.now() + 60000) ts = safeNow();
   const d = new Date(ts);
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -60,14 +63,41 @@ function dayKey(ts) {
 }
 
 function dayStartMillis(ts) {
+  if (ts > Date.now() + 60000) ts = safeNow();
   const d = new Date(ts);
   d.setHours(0, 0, 0, 0);
   return d.getTime();
 }
 
 // ---------- Операции над записями ----------
+/** Текущее «доверенное» время: Date.now() минус измеренный сдвиг часов вперёд. */
+function safeNow() {
+  return Date.now() - clockOffsetMs;
+}
+
+/**
+ * Измеряем сдвиг часов: сервер отдаёт точное время в заголовке Date.
+ * Если локальные часы спешат (типичная причина «29853350635:12»),
+ * запоминаем опережение и корректируем все новые метки времени.
+ */
+function syncClockOffset() {
+  fetch(location.href, { method: "HEAD", cache: "no-store" })
+    .then((r) => {
+      const srv = Date.parse(r.headers.get("date") || "");
+      if (!Number.isFinite(srv)) return;
+      const skew = Date.now() - srv;
+      // Учитываем только явное опережение часов (>2 мин), с запасом на сетевую задержку.
+      clockOffsetMs = skew > 120000 ? skew : 0;
+      if (clockOffsetMs > 0) {
+        fixFutureTimestamps();
+        renderAll();
+      }
+    })
+    .catch(() => {}); // офлайн — оставляем offset = 0
+}
+
 function addEntry(portions) {
-  const now = Date.now();
+  const now = safeNow();
   // Защита от «будущих» меток времени (сбитые часы устройства): не даём
   // таймеру «с последней порции» уйти в отрицательную зону.
   if (!isFinite(now) || now < 0) return;
@@ -75,10 +105,12 @@ function addEntry(portions) {
   save();
 }
 
-/** Игнорируем записи с невозможными метками (отрицательные / из будущего). */
+/** Валидность метки: не отрицательная и не «из будущего». */
 function isValidTs(ts) {
   return Number.isFinite(ts) && ts >= 0 && ts <= Date.now() + 60000;
 }
+
+let clockOffsetMs = 0; // сколько часов устройства опережают реальное время
 
 /**
  * Авто-починка «будущих» меток: если часы устройства были сбиты вперёд
@@ -91,7 +123,7 @@ function fixFutureTimestamps() {
   let changed = false;
   for (const e of state.entries) {
     if (Number.isFinite(e.t) && e.t > maxTs) {
-      e.t = Date.now();
+      e.t = safeNow();
       changed = true;
     }
   }
@@ -265,8 +297,8 @@ function updateTimer() {
     els.lastUseTimer.textContent = "—";
     return;
   }
-  // Отрицательная разница невозможна, но на всякий случай зажимаем в ноль.
-  const diff = Math.max(0, Date.now() - last);
+  // Зажимаем в [0, 3 года]: даже если данные битые, мусор не покажем.
+  const diff = Math.min(Math.max(0, safeNow() - last), MAX_PLAUSIBLE_MS);
   els.lastUseTimer.textContent = diff < 1000 ? "только что" : fmtDuration(diff);
 }
 
@@ -439,6 +471,7 @@ window.addEventListener("storage", () => {
 });
 
 // Старт
+syncClockOffset(); // измеряем сдвиг часов (защита от «будущих» меток)
 fillSettings();
 renderAll();
 
