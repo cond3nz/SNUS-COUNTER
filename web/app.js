@@ -379,3 +379,281 @@ window.addEventListener("storage", () => {
 // Старт
 fillSettings();
 renderAll();
+
+/* ============================================================
+   ПЛЕЕР — коллекция MC Крапива
+   Треки хранятся как ссылки на легальные источники (localStorage).
+   Аудиофайлы в репозиторий не добавляем (авторские права).
+   ============================================================ */
+
+const AUDIO_RE = /\.(mp3|ogg|oga|m4a|aac|wav|weba|webm|flac)(\?|#|$)/i;
+
+// Стартовая коллекция: только названия, без ссылок.
+// Пользователь добавляет URL через карточку «Добавить песню» или патчит этот список.
+const KRAPIVA_SEED = [
+  "Снюс-бэнг",
+  "Крапива-рок",
+  "Никотиновый блюз",
+  "Без никотина ты никто",
+  "Порция за порцией",
+  "Губа онемела",
+  "Антидот",
+];
+
+const pel = (id) => document.getElementById(id);
+const audioEl = pel("audioEl");
+const player = {
+  tracks: [],        // [{title, url}]
+  current: -1,       // индекс играющего трека
+  playing: false,
+  shuffle: false,
+};
+
+function loadTracks() {
+  let raw = null;
+  try { raw = localStorage.getItem("snus.tracks"); } catch (e) {}
+  if (raw) {
+    try {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) return arr.filter((t) => t && t.title);
+    } catch (e) {}
+  }
+  // Первый запуск: сид-коллекция без URL
+  return KRAPIVA_SEED.map((title) => ({ title, url: "" }));
+}
+
+function saveTracks() {
+  try { localStorage.setItem("snus.tracks", JSON.stringify(player.tracks)); } catch (e) {}
+}
+
+player.tracks = loadTracks();
+try { player.shuffle = localStorage.getItem("snus.shuffle") === "1"; } catch (e) {}
+
+function fmtTime(s) {
+  if (!isFinite(s) || s < 0) s = 0;
+  const m = Math.floor(s / 60);
+  const r = Math.floor(s % 60);
+  return m + ":" + String(r).padStart(2, "0");
+}
+
+function renderTrackList() {
+  const ul = pel("trackList");
+  ul.innerHTML = "";
+  pel("trackCount").textContent = "(" + player.tracks.length + ")";
+  pel("tracksEmpty").classList.toggle("hidden", player.tracks.length > 0);
+
+  player.tracks.forEach((t, i) => {
+    const li = document.createElement("li");
+    li.className = "track-item" + (i === player.current ? " current" : "");
+
+    const num = document.createElement("span");
+    num.className = "t-num";
+    num.textContent = i === player.current && player.playing ? "♫" : String(i + 1);
+
+    const name = document.createElement("span");
+    name.className = "t-name";
+    name.textContent = t.title;
+    if (!t.url) name.style.opacity = ".55";
+
+    li.appendChild(num);
+    li.appendChild(name);
+
+    if (!t.url) {
+      const tag = document.createElement("span");
+      tag.className = "t-playing";
+      tag.style.color = "#8b949e";
+      tag.textContent = "нет URL";
+      li.appendChild(tag);
+    }
+
+    const del = document.createElement("button");
+    del.className = "t-del";
+    del.title = "Удалить из коллекции";
+    del.textContent = "✕";
+    del.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      if (!confirm(`Удалить «${t.title}» из коллекции?`)) return;
+      const wasCurrent = i === player.current;
+      player.tracks.splice(i, 1);
+      if (wasCurrent) stopPlayback();
+      else if (player.current > i) player.current--;
+      saveTracks();
+      renderTrackList();
+    });
+    li.appendChild(del);
+
+    li.addEventListener("click", () => playTrack(i));
+    ul.appendChild(li);
+  });
+}
+
+function playTrack(i) {
+  const t = player.tracks[i];
+  if (!t) return;
+  if (!t.url) {
+    showAddNote("У трека «" + t.title + "» нет ссылки на аудио. Добавьте URL ниже.", true);
+    return;
+  }
+  player.current = i;
+  audioEl.src = t.url;
+  audioEl.play().catch(() => {
+    showAddNote("Не удалось воспроизвести (проверьте ссылку/CORS).", true);
+  });
+  pel("playerName").textContent = t.title;
+  updateNowPlayingMeta(t.title);
+  renderTrackList();
+}
+
+function stopPlayback() {
+  audioEl.pause();
+  audioEl.removeAttribute("src");
+  audioEl.load();
+  player.current = -1;
+  player.playing = false;
+  pel("btnPlay").textContent = "▶";
+  pel("playerCover").classList.remove("playing");
+  pel("playerName").textContent = "— выберите трек —";
+  pel("seekBar").value = 0;
+  pel("timeNow").textContent = "0:00";
+  pel("timeDur").textContent = "0:00";
+  if ("mediaSession" in navigator) navigator.mediaSession.metadata = null;
+}
+
+function nextTrack(auto) {
+  if (!player.tracks.length) return;
+  const playable = player.tracks.map((t, i) => (t.url ? i : -1)).filter((i) => i >= 0);
+  if (!playable.length) return;
+  let idx;
+  if (player.shuffle && playable.length > 1) {
+    do { idx = playable[Math.floor(Math.random() * playable.length)]; }
+    while (idx === player.current);
+  } else {
+    const pos = playable.indexOf(player.current);
+    idx = playable[(pos + 1) % playable.length];
+  }
+  playTrack(idx);
+  if (!auto && !player.playing) togglePlay();
+}
+
+function prevTrack() {
+  if (!player.tracks.length) return;
+  if (audioEl.currentTime > 3) { audioEl.currentTime = 0; return; }
+  const playable = player.tracks.map((t, i) => (t.url ? i : -1)).filter((i) => i >= 0);
+  if (!playable.length) return;
+  const pos = playable.indexOf(player.current);
+  const idx = playable[(pos - 1 + playable.length) % playable.length];
+  playTrack(idx);
+}
+
+function togglePlay() {
+  if (player.current < 0) {
+    const firstPlayable = player.tracks.findIndex((t) => t.url);
+    if (firstPlayable >= 0) playTrack(firstPlayable);
+    return;
+  }
+  if (audioEl.paused) audioEl.play().catch(() => {});
+  else audioEl.pause();
+}
+
+function updateNowPlayingMeta(title) {
+  if (!("mediaSession" in navigator)) return;
+  try {
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title, artist: "MC Крапива", album: "Снюс-счётчик FM",
+    });
+    navigator.mediaSession.setActionHandler("play", () => audioEl.play());
+    navigator.mediaSession.setActionHandler("pause", () => audioEl.pause());
+    navigator.mediaSession.setActionHandler("previoustrack", prevTrack);
+    navigator.mediaSession.setActionHandler("nexttrack", () => nextTrack(false));
+  } catch (e) {}
+}
+
+// События аудио
+audioEl.addEventListener("play", () => {
+  player.playing = true;
+  pel("btnPlay").textContent = "⏸";
+  pel("playerCover").classList.add("playing");
+});
+audioEl.addEventListener("pause", () => {
+  player.playing = false;
+  pel("btnPlay").textContent = "▶";
+  pel("playerCover").classList.remove("playing");
+  renderTrackList();
+});
+audioEl.addEventListener("ended", () => nextTrack(true));
+audioEl.addEventListener("error", () => {
+  if (player.current >= 0) showAddNote("Ошибка загрузки: " + (player.tracks[player.current]?.title || ""), true);
+  pel("btnPlay").textContent = "▶";
+  pel("playerCover").classList.remove("playing");
+  player.playing = false;
+});
+audioEl.addEventListener("loadedmetadata", () => {
+  pel("timeDur").textContent = fmtTime(audioEl.duration);
+});
+audioEl.addEventListener("timeupdate", () => {
+  if (pel("seekBar").dataset.dragging === "1") return;
+  pel("timeNow").textContent = fmtTime(audioEl.currentTime);
+  if (isFinite(audioEl.duration) && audioEl.duration > 0) {
+    pel("seekBar").value = (audioEl.currentTime / audioEl.duration) * 100;
+  }
+});
+
+// Контролы
+pel("btnPlay").addEventListener("click", togglePlay);
+pel("btnNext").addEventListener("click", () => nextTrack(false));
+pel("btnPrev").addEventListener("click", prevTrack);
+
+pel("volBar").addEventListener("input", () => {
+  audioEl.volume = parseFloat(pel("volBar").value);
+  try { localStorage.setItem("snus.vol", pel("volBar").value); } catch (e) {}
+});
+audioEl.volume = parseFloat(localStorage.getItem("snus.vol") || "0.8");
+
+const seek = pel("seekBar");
+seek.addEventListener("pointerdown", () => (seek.dataset.dragging = "1"));
+seek.addEventListener("pointerup", () => (seek.dataset.dragging = "0"));
+seek.addEventListener("input", () => {
+  if (isFinite(audioEl.duration)) {
+    pel("timeNow").textContent = fmtTime((seek.value / 100) * audioEl.duration);
+  }
+});
+seek.addEventListener("change", () => {
+  if (isFinite(audioEl.duration) && audioEl.duration > 0) {
+    audioEl.currentTime = (seek.value / 100) * audioEl.duration;
+  }
+});
+
+pel("chkShuffle").checked = player.shuffle;
+pel("chkShuffle").addEventListener("change", () => {
+  player.shuffle = pel("chkShuffle").checked;
+  try { localStorage.setItem("snus.shuffle", player.shuffle ? "1" : "0"); } catch (e) {}
+});
+
+// Добавление трека
+function showAddNote(msg, isError) {
+  const note = pel("addNote");
+  note.textContent = msg;
+  note.style.color = isError ? "#f85149" : "#2ea043";
+  note.classList.remove("hidden");
+  setTimeout(() => note.classList.add("hidden"), 2500);
+}
+
+pel("btnAddTrack").addEventListener("click", () => {
+  const title = pel("addTitle").value.trim();
+  const url = pel("addUrl").value.trim();
+  if (!title) return showAddNote("Введите название.", true);
+  if (!url) return showAddNote("Введите ссылку на аудио.", true);
+  if (!/^https?:\/\//i.test(url)) return showAddNote("Ссылка должна начинаться с http(s)://", true);
+  if (!AUDIO_RE.test(url)) {
+    if (!confirm("Ссылка не похожа на прямой аудиофайл (mp3/ogg/m4a/wav). Всё равно добавить?")) return;
+  }
+  if (player.tracks.some((t) => t.url === url)) return showAddNote("Такой трек уже в коллекции.", true);
+  player.tracks.push({ title, url });
+  saveTracks();
+  renderTrackList();
+  pel("addTitle").value = "";
+  pel("addUrl").value = "";
+  showAddNote("Добавлено ✓", false);
+});
+
+renderTrackList();
