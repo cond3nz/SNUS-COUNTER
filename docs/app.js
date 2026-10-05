@@ -487,6 +487,15 @@ function renderTrackList() {
   });
 }
 
+function playFailHelp(i) {
+  // Прямое воспроизведение не удалось (403 hotlink / нет CORS / ссылка протухла).
+  // Публичные CORS-прокси сырой аудио-стрим не тянут, поэтому остаётся
+  // подсказать пользователю, как получить рабочую ссылку.
+  const t = player.tracks[i];
+  showAddNote("«" + (t ? t.title : "") + "» не играет: хост блокирует прямые запросы или ссылка устарела. Откройте страницу трека на источнике, нажмите «Слушать» и скопируйте актуальную ссылку из плеера — она живёт несколько часов.", true);
+  stopPlayback();
+}
+
 function playTrack(i) {
   const t = player.tracks[i];
   if (!t) return;
@@ -497,7 +506,7 @@ function playTrack(i) {
   player.current = i;
   audioEl.src = t.url;
   audioEl.play().catch(() => {
-    showAddNote("Не удалось воспроизвести (проверьте ссылку/CORS).", true);
+    showAddNote("Запуск отменён: проверьте ссылку (хост может требовать свежую прямую ссылку).", true);
   });
   pel("playerName").textContent = t.title;
   updateNowPlayingMeta(t.title);
@@ -582,7 +591,12 @@ audioEl.addEventListener("pause", () => {
 });
 audioEl.addEventListener("ended", () => nextTrack(true));
 audioEl.addEventListener("error", () => {
-  if (player.current >= 0) showAddNote("Ошибка загрузки: " + (player.tracks[player.current]?.title || ""), true);
+  if (player.current >= 0) {
+    const t = player.tracks[player.current];
+    // Упал прямой источник (403/hotlink/CORS) — пробуем прокси, если он ещё не сохранён как рабочий
+    if (t && t.origUrl && t.url === t.origUrl) { playFailHelp(player.current); return; }
+    showAddNote("Ошибка загрузки: " + (t ? t.title : ""), true);
+  }
   pel("btnPlay").textContent = "▶";
   pel("playerCover").classList.remove("playing");
   player.playing = false;
@@ -638,7 +652,24 @@ function showAddNote(msg, isError) {
   setTimeout(() => note.classList.add("hidden"), 2500);
 }
 
-pel("btnAddTrack").addEventListener("click", () => {
+// Проверка доступности ссылки из браузера. no-cors HEAD даёт opaque-ответ даже
+// при HTTP 403, поэтому дополнительно делаем cors-запрос: на хостах без CORS-
+// заголовков он упадёт с TypeError — это не значит, что ссылка битая.
+async function isPlayable(url) {
+  try {
+    const r = await fetch(url, { method: "HEAD", mode: "no-cors" });
+    if (r.type !== "opaque") return r.ok;           // CORS разрешён — статус честный
+  } catch (e) { /* сеть/CORS — пробуем следующий способ */ }
+  try {
+    const r = await fetch(url, { method: "GET", mode: "cors", signal: AbortSignal.timeout(6000) });
+    return r.ok;                                    // удалось прочитать — файл живой
+  } catch (e) {
+    return true;   // скорее всего нет CORS-заголовков, а не 404/403
+  }
+}
+
+async function addTrack() {
+  const btn = pel("btnAddTrack");
   const title = pel("addTitle").value.trim();
   const url = pel("addUrl").value.trim();
   if (!title) return showAddNote("Введите название.", true);
@@ -647,13 +678,27 @@ pel("btnAddTrack").addEventListener("click", () => {
   if (!AUDIO_RE.test(url)) {
     if (!confirm("Ссылка не похожа на прямой аудиофайл (mp3/ogg/m4a/wav). Всё равно добавить?")) return;
   }
-  if (player.tracks.some((t) => t.url === url)) return showAddNote("Такой трек уже в коллекции.", true);
-  player.tracks.push({ title, url });
+  if (player.tracks.some((t) => t.url === url || t.origUrl === url)) {
+    return showAddNote("Такой трек уже в коллекции.", true);
+  }
+
+  btn.disabled = true;
+  showAddNote("Проверяю ссылку…", false);
+  const ok = await isPlayable(url);
+  btn.disabled = false;
+  if (!ok) {
+    showAddNote("Ссылка не отвечает (битая или уже устарела). Скопируйте актуальную ссылку из плеера источника — такие временные ссылки обычно живут несколько часов.", true);
+    return;
+  }
+
+  player.tracks.push({ title, url, origUrl: url });
   saveTracks();
   renderTrackList();
   pel("addTitle").value = "";
   pel("addUrl").value = "";
   showAddNote("Добавлено ✓", false);
-});
+}
+
+pel("btnAddTrack").addEventListener("click", addTrack);
 
 renderTrackList();

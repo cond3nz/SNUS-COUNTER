@@ -143,6 +143,7 @@
     <div class="card">
       <div class="card-title">➕ Добавить песню</div>
       <p class="hint">GitHub Pages отдаёт только файлы из репозитория, а скачивать чужие треки — нарушение авторских прав. Поэтому коллекция пополняется ссылками на легальные источники (официальный релиз, Bandcamp, собственный хостинг). Ссылка должна оканчиваться на mp3/ogg/m4a/wav или открываться напрямую как аудио.</p>
+      <p class="hint">⚠️ Временные ссылки агрегаторов (hitmoz и т.п.) часто не работают: сервер отдаёт 403 для запросов не со своей страницы, а ссылка «протухает» через несколько часов. Проверяйте её в новой вкладке браузера перед добавлением; надёжнее всего — постоянный легальный хостинг или свои файлы.</p>
       <label class="field"><span>Название</span><input type="text" id="addTitle" placeholder="Например: Крапива-рок"></label>
       <label class="field"><span>URL аудио (mp3/ogg)</span><input type="url" id="addUrl" placeholder="https://…/track.mp3"></label>
       <button id="btnAddTrack" class="btn btn-primary btn-block">Добавить в коллекцию</button>
@@ -200,6 +201,6 @@
   </form>
 </dialog>
 
-<script src="app.js?v=3"></script>
+<script src="app.js?v=4"></script>
 </body>
 </html>
