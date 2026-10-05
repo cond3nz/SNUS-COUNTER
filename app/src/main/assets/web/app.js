@@ -388,16 +388,23 @@ renderAll();
 
 const AUDIO_RE = /\.(mp3|ogg|oga|m4a|aac|wav|weba|webm|flac)(\?|#|$)/i;
 
-// Стартовая коллекция: только названия, без ссылок.
-// Пользователь добавляет URL через карточку «Добавить песню» или патчит этот список.
+// Стартовая коллекция по умолчанию — 3 трека MC Крапива (ссылки на lightaudio.ru).
+// Ссылки могут быть временными; пользователь всегда может заменить/добавить свои
+// через карточку «Добавить песню». SEED_VERSION — версия сида для авто-миграции.
+const SEED_VERSION = 2;
 const KRAPIVA_SEED = [
-  "Снюс-бэнг",
-  "Крапива-рок",
-  "Никотиновый блюз",
-  "Без никотина ты никто",
-  "Порция за порцией",
-  "Губа онемела",
-  "Антидот",
+  {
+    title: "MC Крапива — Крутые пацаны живут с мамой",
+    url: "https://storage9.lightaudio.ru/dm/39a09105/3bb509b2/%D0%BC%D1%86%20%D0%BA%D1%80%D0%B0%D0%BF%D0%B8%D0%B2%D0%B0%20%E2%80%94%20%D0%9A%D1%80%D1%83%D1%82%D1%8B%D0%B5%20%D0%BF%D0%B0%D1%86%D0%B0%D0%BD%D1%8B%20%D0%B6%D0%B8%D0%B2%D1%83%D1%82%20%D1%81%20%D0%BC%D0%B0%D0%BC%D0%BE%D0%B9.mp3?d=138&v=dcb772be6f",
+  },
+  {
+    title: "MC Крапива — Люблю Пиво",
+    url: "https://storage9.lightaudio.ru/dm/39a08dfd/3bb50938/%D0%BC%D1%86%20%D0%BA%D1%80%D0%B0%D0%BF%D0%B8%D0%B2%D0%B0%20%E2%80%94%20%D0%9B%D1%8E%D0%B1%D0%BB%D1%8E%20%D0%BF%D0%B8%D0%B2%D0%BE.mp3?d=162&v=cb7073d467",
+  },
+  {
+    title: "MC Крапива — Виноградный день",
+    url: "https://storage4.lightaudio.ru/dm/39a09a92/3bb5093f/%D0%BC%D1%86%20%D0%BA%D1%80%D0%B0%D0%BF%D0%B8%D0%B2%D0%B0%20%E2%80%94%20%D0%92%D0%B8%D0%BD%D0%BE%D0%B3%D1%80%D0%B0%D0%B4%D0%BD%D1%8B%D0%B9%20%D0%B4%D0%B5%D0%BD%D1%8C.mp3?d=144&v=1eff9dda0c",
+  },
 ];
 
 const pel = (id) => document.getElementById(id);
@@ -415,11 +422,26 @@ function loadTracks() {
   if (raw) {
     try {
       const arr = JSON.parse(raw);
-      if (Array.isArray(arr)) return arr.filter((t) => t && t.title);
+      if (Array.isArray(arr)) {
+        // Миграция: если пользователь ничего не менял (сид v1 без URL или старый
+        // номер версии) — подменяем коллекцию новым сидом по умолчанию.
+        let ver = null;
+        try { ver = localStorage.getItem("snus.seedVer"); } catch (e) {}
+        const untouchedV1 = arr.length > 0 && arr.every((t) => t && t.title && !t.url);
+        if (ver !== String(SEED_VERSION) && (untouchedV1 || arr.length === 0)) {
+          return seedTracks();
+        }
+        return arr.filter((t) => t && t.title);
+      }
     } catch (e) {}
   }
-  // Первый запуск: сид-коллекция без URL
-  return KRAPIVA_SEED.map((title) => ({ title, url: "" }));
+  // Первый запуск: сид-коллекция по умолчанию
+  return seedTracks();
+}
+
+function seedTracks() {
+  try { localStorage.setItem("snus.seedVer", String(SEED_VERSION)); } catch (e) {}
+  return KRAPIVA_SEED.map((t) => ({ title: t.title, url: t.url || "" }));
 }
 
 function saveTracks() {
