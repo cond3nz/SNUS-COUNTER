@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0d1117">
+<title>Снюс-счётчик</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <span class="logo">🧂 Снюс-счётчик</span>
+  <nav class="tabs">
+    <button class="tab active" data-tab="today" title="Сегодня">Сегодня</button>
+    <button class="tab" data-tab="history" title="История">История</button>
+    <button class="tab" data-tab="settings" title="Настройки">Настройки</button>
+  </nav>
+</header>
+
+<main>
+
+  <!-- ================= ВКЛАДКА: СЕГОДНЯ ================= -->
+  <section id="tab-today" class="panel active">
+
+    <div class="card counter-card">
+      <div class="counter-label">Вкинуто сегодня</div>
+      <div class="counter-value"><span id="todayCount">0</span> <small>порц.</small></div>
+      <div class="progress-wrap">
+        <div class="progress-bar"><div id="progressFill" class="progress-fill"></div></div>
+        <div class="progress-text" id="progressText">лимит: 10</div>
+      </div>
+      <div class="limit-warning hidden" id="limitWarning">⚠️ Лимит на день превышен!</div>
+
+      <div class="btn-row">
+        <button id="btnMinus" class="btn btn-secondary" title="Отменить последнюю порцию за сегодня">−1</button>
+        <button id="btnPlus" class="btn btn-primary" title="Записать одну порцию">+1 вкинул 🧂</button>
+        <button id="btnCustom" class="btn btn-secondary" title="Записать произвольное число порций">…</button>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat">
+          <div class="stat-value" id="lastUseTimer">—</div>
+          <div class="stat-label">с последней порции</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="cleanStreak">0</div>
+          <div class="stat-label">дней чистый</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="pouchesToday">0</div>
+          <div class="stat-label">банок сегодня</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Порции сегодня</div>
+      <ul id="todayList" class="entry-list"></ul>
+      <div id="todayEmpty" class="empty">Сегодня чисто. Так держать! ✅</div>
+    </div>
+
+    <div class="disclaimer">⚠️ Никотин вреден. Приложение для учёта, а не одобрения.</div>
+  </section>
+
+  <!-- ================= ВКЛАДКА: ИСТОРИЯ ================= -->
+  <section id="tab-history" class="panel">
+    <div class="card">
+      <div class="card-title">Статистика</div>
+      <div class="stats-row">
+        <div class="stat">
+          <div class="stat-value" id="statTotal">0</div>
+          <div class="stat-label">всего порций</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="statAvg">0</div>
+          <div class="stat-label">среднее в день</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="statMax">0</div>
+          <div class="stat-label">макс. за день</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">По дням</div>
+      <div id="chart" class="chart"></div>
+      <ul id="historyList" class="history-list"></ul>
+      <div id="historyEmpty" class="empty">Пока нет записей.</div>
+    </div>
+  </section>
+
+  <!-- ================= ВКЛАДКА: НАСТРОЙКИ ================= -->
+  <section id="tab-settings" class="panel">
+    <div class="card">
+      <div class="card-title">Лимиты и параметры</div>
+
+      <label class="field">
+        <span>Дневной лимит (порций)</span>
+        <input type="number" id="setLimit" min="1" max="999" inputmode="numeric">
+      </label>
+
+      <label class="field">
+        <span>Порций в одной банке</span>
+        <input type="number" id="setPouch" min="1" max="999" inputmode="numeric">
+      </label>
+
+      <label class="field">
+        <span>Мг никотина на порцию (для справки)</span>
+        <input type="number" id="setNic" min="0" step="0.5" inputmode="decimal">
+      </label>
+
+      <button id="btnSaveSettings" class="btn btn-primary btn-block">Сохранить</button>
+      <div id="settingsSaved" class="saved-note hidden">Сохранено ✓</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Данные</div>
+      <button id="btnClearToday" class="btn btn-secondary btn-block">Обнулить сегодня</button>
+      <button id="btnClearAll" class="btn btn-danger btn-block">Удалить всю историю</button>
+      <button id="btnExport" class="btn btn-secondary btn-block">Экспорт JSON</button>
+    </div>
+
+    <div class="disclaimer">Данные хранятся только в этом браузере (localStorage). Сброс данных браузера удалит историю.</div>
+  </section>
+
+</main>
+
+<!-- Диалог произвольного числа -->
+<dialog id="dlgCustom">
+  <form method="dialog">
+    <h3>Сколько вкинул?</h3>
+    <input type="number" id="customAmount" min="1" max="99" value="1" inputmode="numeric">
+    <div class="btn-row">
+      <button value="cancel" class="btn btn-secondary">Отмена</button>
+      <button value="ok" id="customOk" class="btn btn-primary">Ок</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="app.js"></script>
+</body>
+</html>

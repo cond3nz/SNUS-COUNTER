@@ -64,6 +64,7 @@ public class MainActivity extends AppCompatActivity {
         Button btnCustom = findViewById(R.id.btnCustom);
         ImageButton btnHistory = findViewById(R.id.btnHistory);
         ImageButton btnSettings = findViewById(R.id.btnSettings);
+        ImageButton btnWeb = findViewById(R.id.btnWeb);
 
         btnPlus.setOnClickListener(v -> {
             store.addEntry(1);
@@ -86,6 +87,9 @@ public class MainActivity extends AppCompatActivity {
 
         btnSettings.setOnClickListener(v ->
                 startActivity(new android.content.Intent(this, SettingsActivity.class)));
+
+        btnWeb.setOnClickListener(v ->
+                startActivity(new android.content.Intent(this, WebActivity.class)));
     }
 
     private void showCustomDialog() {

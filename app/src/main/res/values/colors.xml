@@ -9,5 +9,7 @@
     <color name="card">#1C2420</color>
     <color name="text_main">#F1F5F2</color>
     <color name="text_dim">#9AA8A0</color>
+    <color name="text_primary">#F1F5F2</color>
+    <color name="muted">#9AA8A0</color>
     <color name="white">#FFFFFF</color>
 </resources>

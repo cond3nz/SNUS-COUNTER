@@ -44,4 +44,8 @@
     <string name="confirm_clear_all">Удалить ВСЮ историю безвозвратно?</string>
     <string name="cleared">Готово</string>
     <string name="danger_note">⚠️ Никотин вызывает сильную зависимость. Приложение для учёта, а не для поощрения.</string>
+    <string name="web_title">Веб-версия</string>
+    <string name="web_back_to_native">Вернуться в нативный экран</string>
+    <string name="web_open_native">Открыть нативный экран</string>
+    <string name="menu_web">Веб-версия</string>
 </resources>
