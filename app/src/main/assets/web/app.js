@@ -15,35 +15,35 @@ const defaults = {
 
 let state = load();
 
-/**
- * Санация данных: отфильтровывает повреждённые записи.
- * Могут появиться из-за сбитых часов устройства или ручного импорта —
- * например, метка времени в будущем или некорректный тип. Такие записи
- * ломают таймер «с последней порции» (отрицательная разница дат).
- */
-function sanitize(raw) {
-  if (!Array.isArray(raw)) return [];
-  const maxTs = Date.now() + 60000; // допустимый запас на часовые пояса
-  return raw.filter(
-    (e) =>
-      e &&
-      Number.isFinite(e.t) &&
-      e.t >= 0 &&
-      e.t <= maxTs &&
-      Number.isFinite(e.p) &&
-      e.p > 0
-  );
-}
-
 function load() {
   try {
     const raw = localStorage.getItem(PREFS_KEY);
     if (!raw) return structuredClone(defaults);
     const parsed = JSON.parse(raw);
-    return { ...structuredClone(defaults), ...parsed, entries: sanitize(parsed.entries) };
+    return { ...structuredClone(defaults), ...parsed, entries: repairEntries(parsed.entries) };
   } catch {
     return structuredClone(defaults);
   }
+}
+
+/**
+ * Починка повреждённых записей при загрузке:
+ *  - метка в будущем (сбитые часы устройства) -> переносим на «сейчас»,
+ *    иначе таймер «с последней порции» показывает мусор;
+ *  - отрицательные/NaN/некорректные значения -> удаляем.
+ */
+function repairEntries(raw) {
+  if (!Array.isArray(raw)) return [];
+  const now = Date.now();
+  const maxTs = now + 60000;
+  const out = [];
+  for (const e of raw) {
+    if (!e || !Number.isFinite(e.p) || e.p <= 0) continue;
+    if (!Number.isFinite(e.t) || e.t < 0) continue;
+    if (e.t > maxTs) { e.t = now; } // «будущая» метка -> текущая
+    out.push(e);
+  }
+  return out;
 }
 
 function save() {
@@ -78,6 +78,24 @@ function addEntry(portions) {
 /** Игнорируем записи с невозможными метками (отрицательные / из будущего). */
 function isValidTs(ts) {
   return Number.isFinite(ts) && ts >= 0 && ts <= Date.now() + 60000;
+}
+
+/**
+ * Авто-починка «будущих» меток: если часы устройства были сбиты вперёд
+ * (или трюк с offline-first), запись оказывается в будущем и ломает
+ * таймер «с последней порции». Молча переносим такие метки на текущее
+ * время — данные сохраняются, аномалия исчезает.
+ */
+function fixFutureTimestamps() {
+  const maxTs = Date.now() + 60000;
+  let changed = false;
+  for (const e of state.entries) {
+    if (Number.isFinite(e.t) && e.t > maxTs) {
+      e.t = Date.now();
+      changed = true;
+    }
+  }
+  if (changed) save();
 }
 
 function removeLastEntryToday() {
@@ -171,8 +189,13 @@ const els = {
 };
 
 // ---------- Форматтеры ----------
+/** Максимально реалистичная длительность: ~3 года в миллисекундах.
+ *  Всё, что больше — почти наверняка битые данные (сбитые часы,
+ *  импорт, баги меток времени), показываем «—». */
+const MAX_PLAUSIBLE_MS = 3 * 365 * 86400000;
+
 function fmtDuration(ms) {
-  if (!Number.isFinite(ms) || ms < 0) return "—"; // защита от «будущих» меток
+  if (!Number.isFinite(ms) || ms < 0 || ms > MAX_PLAUSIBLE_MS) return "—";
   const s = Math.floor(ms / 1000);
   if (s < 60) return `${s} сек`;
   const m = Math.floor(s / 60);
@@ -234,6 +257,9 @@ function renderToday() {
 
 // ---------- Таймер с последней порции ----------
 function updateTimer() {
+  // На всякий случай чиним «будущие» метки (например, часы устройства
+  // сбились вперёд во время работы вкладки) — иначе diff уйдёт в минус.
+  fixFutureTimestamps();
   const last = getLastUseTimeToday();
   if (!last || !isValidTs(last)) {
     els.lastUseTimer.textContent = "—";
