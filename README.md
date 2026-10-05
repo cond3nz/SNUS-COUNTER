@@ -8,9 +8,14 @@
   таймер с последней порции, чистая серия), HistoryActivity, SettingsActivity
 - Сборка: `gradle assembleDebug` → `app/build/outputs/apk/debug/app-debug.apk`
 
-## 2. Встраиваемая веб-версия (`web/`)
+## 2. Встраиваемая веб-версия (`web/`, опубликована в `docs/`)
 Чистый HTML/CSS/JS без зависимостей, логика 1-в-1 повторяет `SnusStore.java`,
-данные — в localStorage. Работает офлайн.
+данные — в localStorage. Работает офлайн. Есть PWA-манифест (установка на главный экран).
+
+**GitHub Pages:** папка `docs/` — исходники сайта; деплой автоматический через
+GitHub Actions (`.github/workflows/pages.yml`) при пуше в `main`/`master`.
+После включения Pages (Settings → Pages → Source: GitHub Actions) адрес будет:
+`https://<владелец>.github.io/<репозиторий>/`
 
 Запуск для разработки:
 ```bash
