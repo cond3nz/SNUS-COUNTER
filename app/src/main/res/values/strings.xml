@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Снюс-счётчик</string>
+
+    <!-- Главный экран -->
+    <string name="today_label">Сегодня вкинуто</string>
+    <string name="of_limit">из %1$d за день</string>
+    <string name="btn_plus_one">+1 порция</string>
+    <string name="btn_minus_one">−1</string>
+    <string name="btn_custom">Другое число</string>
+    <string name="last_use_none">Сегодня ещё ничего не было 🎉</string>
+    <string name="last_use_now">Последняя порция: только что</string>
+    <string name="last_use_min">Последняя порция: %1$d мин назад</string>
+    <string name="last_use_hour">Последняя порция: %1$d ч %2$d мин назад</string>
+    <string name="last_use_days_ago">Последний раз: %1$d дн. назад</string>
+    <string name="clean_days">🔥 %1$d дн. без снюса</string>
+    <string name="nothing_to_undo">Сегодня ещё ничего не вкинуто</string>
+    <string name="today_empty">Сегодня пусто</string>
+    <string name="custom_title">Сколько порций вкинуть?</string>
+    <string name="hint_portions">Кол-во порций</string>
+    <string name="add">Добавить</string>
+    <string name="cancel">Отмена</string>
+    <string name="save">Сохранить</string>
+    <string name="ok">OK</string>
+    <string name="content_history">История</string>
+    <string name="content_settings">Настройки</string>
+
+    <!-- История -->
+    <string name="title_history">История</string>
+    <string name="stat_total">Всего за всё время: %1$d порц.</string>
+    <string name="stat_avg">Среднее в день: %1$.1f порц.</string>
+    <string name="stat_max">Рекорд за день: %1$d порц.</string>
+    <string name="portions_count">%1$d порц.</string>
+
+    <!-- Настройки -->
+    <string name="title_settings">Настройки</string>
+    <string name="settings_limit">Дневной лимит (порций)</string>
+    <string name="settings_pouch">Порций в одной банке</string>
+    <string name="dialog_limit_title">Дневной лимит</string>
+    <string name="dialog_pouch_title">Порций в банке</string>
+    <string name="clear_today">Очистить сегодня</string>
+    <string name="clear_all">Удалить всю историю</string>
+    <string name="confirm_clear_today">Обнулить счётчик за сегодня?</string>
+    <string name="confirm_clear_all">Удалить ВСЮ историю безвозвратно?</string>
+    <string name="cleared">Готово</string>
+    <string name="danger_note">⚠️ Никотин вызывает сильную зависимость. Приложение для учёта, а не для поощрения.</string>
+</resources>
